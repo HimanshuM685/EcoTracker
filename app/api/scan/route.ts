@@ -2,11 +2,14 @@ import { NextResponse } from "next/server"
 import axios from "axios"
 import dbConnect from "@/lib/mongodb"
 import User from "@/models/User"
+import { calculateCarbonFootprint } from "@/lib/carbon-calculator"
 
 type OpenFoodFactsResponse = {
   product: {
     product_name?: string;
     brands?: string;
+    categories?: string;
+    ingredients_text?: string;
   };
   status: number;
   code: string;
@@ -30,54 +33,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
-    const estimatedCarbon = Math.random() * 2 + 0.5
+    // Calculate carbon footprint
+    const carbonData = calculateCarbonFootprint(
+      product.product_name, 
+      product.brands
+    )
 
     // Update user stats in database if userEmail is provided
     if (userEmail) {
       try {
         await dbConnect()
         
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        
         const user = await User.findOne({ email: userEmail })
         
         if (user) {
-          // Update carbon and scan count
-          user.monthlyCarbon += estimatedCarbon
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          
+          // Add scan to history
+          user.scans.push({
+            productName: product.product_name,
+            carbonEstimate: parseFloat(carbonData.carbonFootprint.toFixed(2)),
+            category: carbonData.category,
+            confidence: carbonData.confidence,
+            barcode: barcode,
+            date: new Date()
+          })
+          
+          // Update totals
+          user.monthlyCarbon += carbonData.carbonFootprint
           user.totalScanned += 1
           
-          // Update streak logic
+          // Calculate streak
           const lastScan = user.lastScanDate ? new Date(user.lastScanDate) : null
           const yesterday = new Date(today)
           yesterday.setDate(yesterday.getDate() - 1)
           
-          if (!lastScan || lastScan < yesterday) {
-            // Reset streak if more than a day gap
+          if (!lastScan) {
+            // First scan
             user.streakCount = 1
+          } else if (lastScan.getTime() === today.getTime()) {
+            // Already scanned today, don't increment streak
           } else if (lastScan.getTime() === yesterday.getTime()) {
-            // Continue streak if scanned yesterday
+            // Scanned yesterday, continue streak
             user.streakCount += 1
+          } else {
+            // Streak broken
+            user.streakCount = 1
           }
-          // If scanned today already, don't change streak
           
           user.lastScanDate = today
           user.bestStreakCount = Math.max(user.bestStreakCount || 0, user.streakCount)
           
           await user.save()
           
-          console.log(`✅ Updated stats for user ${userEmail}: +${estimatedCarbon.toFixed(2)} kg CO₂, +1 scan, streak: ${user.streakCount}`)
+          console.log(`✅ Updated stats for user ${userEmail}: +${carbonData.carbonFootprint} kg CO₂, streak: ${user.streakCount}`)
         }
       } catch (dbError) {
         console.error("🔥 Failed to update user stats:", dbError)
-        // Don't fail the request if DB update fails
       }
     }
 
     return NextResponse.json({
       productName: product.product_name,
       brand: product.brands || "Unknown",
-      carbonEstimate: estimatedCarbon.toFixed(2),
+      carbonEstimate: carbonData.carbonFootprint.toFixed(2),
+      category: carbonData.category,
+      confidence: carbonData.confidence,
+      calculation: carbonData.calculation,
+      ingredients: product.ingredients_text || "Not available"
     })
   } catch (error) {
     return NextResponse.json(

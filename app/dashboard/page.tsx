@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,22 +11,66 @@ import { Leaf, Scan, TrendingDown, Trophy } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
+interface UserStats {
+  monthlyCarbon: number
+  totalScanned: number
+  rank: number
+  totalUsers: number
+  streakCount: number
+}
+
 export default function Dashboard() {
   const { user } = useAuth()
   const router = useRouter()
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!user) {
       router.push("/auth/signin")
+    } else {
+      fetchUserStats()
     }
   }, [user, router])
+
+  const fetchUserStats = async () => {
+    try {
+      // Fetch leaderboard data to get user rank and stats
+      const response = await fetch('/api/leaderboard')
+      if (response.ok) {
+        const data = await response.json()
+        const currentUser = data.leaderboard.find((u: any) => u.email === user?.email)
+        
+        if (currentUser) {
+          setUserStats({
+            monthlyCarbon: currentUser.monthlyCarbon,
+            totalScanned: currentUser.totalScanned,
+            rank: currentUser.rank,
+            totalUsers: data.stats.totalUsers,
+            streakCount: currentUser.streakCount
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch user stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (!user) {
     return null
   }
 
-  const monthlyGoal = 10 // kg CO₂
-  const progressPercentage = (user.monthlyCarbon / monthlyGoal) * 100
+  const monthlyGoal = 40 // kg CO₂
+  const progressPercentage = userStats ? (userStats.monthlyCarbon / monthlyGoal) * 100 : 0
+
+  const getSustainabilityScore = (carbon: number) => {
+    if (carbon < 20) return "A+"
+    if (carbon < 35) return "B+"
+    if (carbon < 50) return "B"
+    return "C"
+  }
 
   return (
     <DashboardLayout>
@@ -45,8 +89,12 @@ export default function Dashboard() {
               <TrendingDown className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {/* <div className="text-2xl font-bold text-white">{user.monthlyCarbon.toFixed(1)} kg</div> */}
-              <p className="text-xs text-gray-500">{progressPercentage < 100 ? "Below" : "Above"} monthly goal</p>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : `${userStats?.monthlyCarbon.toFixed(1) || 0} kg`}
+              </div>
+              <p className="text-xs text-gray-500">
+                {progressPercentage < 100 ? "Below" : "Above"} monthly goal
+              </p>
             </CardContent>
           </Card>
 
@@ -56,7 +104,9 @@ export default function Dashboard() {
               <Scan className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-             <div className="text-2xl font-bold text-white">{user.totalScanned}</div>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : userStats?.totalScanned || 0}
+              </div>
               <p className="text-xs text-gray-500">This month</p>
             </CardContent>
           </Card>
@@ -67,8 +117,12 @@ export default function Dashboard() {
               <Leaf className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">B+</div>
-              <p className="text-xs text-gray-500">Above average</p>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : getSustainabilityScore(userStats?.monthlyCarbon || 0)}
+              </div>
+              <p className="text-xs text-gray-500">
+                {userStats && userStats.monthlyCarbon < 35 ? "Above average" : "Room for improvement"}
+              </p>
             </CardContent>
           </Card>
 
@@ -78,8 +132,12 @@ export default function Dashboard() {
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">#12</div>
-              <p className="text-xs text-gray-500">Out of 1,247 users</p>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : `#${userStats?.rank || 0}`}
+              </div>
+              <p className="text-xs text-gray-500">
+                Out of {userStats?.totalUsers || 0} users
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -96,9 +154,9 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Progress</span>
-                {/* <span>
-                  {user.monthlyCarbon.toFixed(1)}kg / {monthlyGoal}kg
-                </span> */}
+                <span>
+                  {userStats?.monthlyCarbon.toFixed(1) || 0}kg / {monthlyGoal}kg
+                </span>
               </div>
               <Progress value={Math.min(progressPercentage, 100)} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -109,6 +167,11 @@ export default function Dashboard() {
             {progressPercentage < 100 && (
               <Badge variant="secondary" className="mt-4 bg-green-100 text-green-800">
                 🎯 On track to meet your goal!
+              </Badge>
+            )}
+            {userStats && userStats.streakCount > 0 && (
+              <Badge variant="secondary" className="mt-2 ml-2 bg-blue-100 text-blue-800">
+                🔥 {userStats.streakCount} day streak!
               </Badge>
             )}
           </CardContent>

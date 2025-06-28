@@ -21,6 +21,8 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
   const { toast } = useToast()
   const { user } = useAuth()
 
+  const codeReader = new BrowserMultiFormatReader()
+
   useEffect(() => {
     startCamera()
     return () => stopCamera()
@@ -93,9 +95,6 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     setFacingMode(facingMode === "user" ? "environment" : "user")
   }
 
-
-  // INSIDE barcode-scanner.tsx
-
   const handleScan = async (barcode: string) => {
     try {
       const scanRes = await fetch("/api/scan", {
@@ -103,43 +102,38 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           barcode,
-          userEmail: user?.email // Include user email for database tracking
+          userEmail: user?.email
         }),
       });
 
       const data = await scanRes.json();
       if (data.error) {
-        toast({ title: "Product not found", variant: "destructive" });
+        toast({ 
+          title: "Product not found", 
+          description: "Unable to find product information for this barcode.",
+          variant: "destructive" 
+        });
         return;
       }
 
-      // Send to user score API (keeping for backward compatibility)
-      const userScoreRes = await fetch("/api/user/score", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: user?.email,
-          productName: data.productName,
-          carbonEstimate: data.carbonEstimate,
-        }),
+      // Show success message with product info
+      toast({
+        title: `Product Scanned: ${data.productName}`,
+        description: `Carbon Estimate: ${data.carbonEstimate} kg CO₂ (${data.category})`,
       });
 
-      const scoreData = await userScoreRes.json();
-      toast({
-        title: `Carbon Estimate: ${data.carbonEstimate} kg`,
-        description: `Your total score: ${scoreData.newScore} kg`,
-      });
+      // Close scanner after successful scan
+      onScan(barcode);
+      
     } catch (err) {
+      console.error("Scan error:", err);
       toast({
-        title: "API Error",
-        description: "Something went wrong while fetching data.",
+        title: "Scan Failed",
+        description: "Something went wrong while processing the scan.",
         variant: "destructive",
       });
     }
   };
-
-
-  const codeReader = new BrowserMultiFormatReader()
 
   const simulateScan = async () => {
     if (videoRef.current) {
@@ -147,16 +141,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         const result = await codeReader.decodeOnceFromVideoElement(videoRef.current)
         if (result && result.getText()) {
           const barcode = result.getText()
-          onScan(barcode)
-          toast({
-            title: "Barcode detected!",
-            description: `Scanned barcode: ${barcode}`,
-          })
+          await handleScan(barcode)
         }
       } catch (error) {
-        if ((error as any)?.name === "NotFoundException") {
-          // No barcode found – don't toast every time to avoid spam
-        } else {
+        if ((error as any)?.name !== "NotFoundException") {
           toast({
             title: "Scanning failed",
             description: (error as Error).message,
@@ -167,14 +155,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     }
   }
 
-  const enterBarcodeManually = () => {
+  const enterBarcodeManually = async () => {
     const input = prompt("Enter barcode manually:")
-    if (input) {
-      onScan(input)
-      toast({
-        title: "Manual barcode entered",
-        description: `Scanned barcode: ${input}`,
-      })
+    if (input && input.trim()) {
+      await handleScan(input.trim())
     }
   }
 
@@ -247,4 +231,3 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
     </div>
   )
 }
-

@@ -18,11 +18,13 @@ interface ProductData {
   barcode: string
   product: string
   co2_emission: number
-  image?: string
+  category?: string
+  confidence?: 'high' | 'medium' | 'low'
+  calculation?: string
+  brand?: string
   description?: string
   sustainabilityScore?: string
-  brand?: string
-  category?: string
+  image?: string
   transportDistance?: string
   packaging?: string
   certifications?: string[]
@@ -83,11 +85,10 @@ export default function ScanPage() {
   setIsLoading(true);
 
   try {
-    // Step 1: Try hitting /api/scan
     const res = await fetch("/api/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ barcode: actualBarcode }),
+      body: JSON.stringify({ barcode: actualBarcode, userEmail: user?.email }),
     });
 
     const data = await res.json();
@@ -96,34 +97,25 @@ export default function ScanPage() {
       throw new Error("Product not found in API");
     }
 
-    // Step 2: If API worked, use API result
     setProduct({
       barcode: actualBarcode,
       product: data.productName,
       brand: data.brand || "Unknown",
       category: data.category || "Unknown",
       co2_emission: parseFloat(data.carbonEstimate),
+      confidence: data.confidence,
+      calculation: data.calculation,
       sustainabilityScore: "B",
-      description: "Data fetched from OpenFoodFacts",
+      description: `${data.calculation || "Calculated using scientific data"}`,
       image: "/placeholder.svg",
       certifications: [],
       packaging: "Unknown",
       transportDistance: "Unknown",
     });
 
-    await fetch("/api/user/score", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: user?.email,
-        productName: data.productName,
-        carbonEstimate: data.carbonEstimate,
-      }),
-    });
-
     toast({
       title: "Product found!",
-      description: `Carbon impact: ${data.carbonEstimate}kg CO₂`,
+      description: `Carbon impact: ${data.carbonEstimate}kg CO₂ (${data.confidence} confidence)`,
     });
 
     updateUserStats?.(parseFloat(data.carbonEstimate));
@@ -262,9 +254,20 @@ export default function ScanPage() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between text-white">
                 <span>{product.product}</span>
-                <Badge className={`${getSustainabilityColor(product.sustainabilityScore!)} border`}>
-                  Score: {product.sustainabilityScore}
-                </Badge>
+                <div className="flex gap-2">
+                  <Badge className={`${getSustainabilityColor(product.sustainabilityScore!)} border`}>
+                    Score: {product.sustainabilityScore}
+                  </Badge>
+                  {product.confidence && (
+                    <Badge variant="outline" className={
+                      product.confidence === 'high' ? 'border-green-500 text-green-400' :
+                      product.confidence === 'medium' ? 'border-yellow-500 text-yellow-400' :
+                      'border-red-500 text-red-400'
+                    }>
+                      {product.confidence} confidence
+                    </Badge>
+                  )}
+                </div>
               </CardTitle>
               <CardDescription>
                 {product.brand} • {product.category}
@@ -297,6 +300,11 @@ export default function ScanPage() {
                         )
                       })()}
                     </div>
+                    {product.calculation && (
+                      <p className="text-sm text-gray-400 mt-2">
+                        Calculation: {product.calculation}
+                      </p>
+                    )}
                   </div>
 
                   <Separator />

@@ -1,36 +1,61 @@
 // app/api/user/score/route.ts
 
 import { NextResponse } from "next/server"
+import dbConnect from "@/lib/mongodb"
+import User from "@/models/User"
 
-let userDB: { [email: string]: { score: number; scans: any[] } } = {}
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const email = searchParams.get('email')
+
+  if (!email) {
+    return NextResponse.json({ error: "Email required" }, { status: 400 })
+  }
+
+  try {
+    await dbConnect()
+    const user = await User.findOne({ email }).lean()
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({
+      monthlyCarbon: user.monthlyCarbon || 0,
+      totalScanned: user.totalScanned || 0,
+      streakCount: user.streakCount || 0,
+      bestStreakCount: user.bestStreakCount || 0,
+      scans: user.scans || [],
+      sustainabilityLevel: user.monthlyCarbon < 20 ? 'Excellent' : 
+                          user.monthlyCarbon < 35 ? 'Good' : 
+                          user.monthlyCarbon < 50 ? 'Average' : 'Needs Improvement'
+    })
+  } catch (error) {
+    console.error("Error fetching user data:", error)
+    return NextResponse.json({ error: "Failed to fetch user data" }, { status: 500 })
+  }
+}
 
 export async function POST(req: Request) {
   const { email, productName, carbonEstimate } = await req.json()
 
-  if (!userDB[email]) {
-    userDB[email] = { score: 0, scans: [] }
+  if (!email) {
+    return NextResponse.json({ error: "Email required" }, { status: 400 })
   }
 
-  userDB[email].score += parseFloat(carbonEstimate)
-  userDB[email].scans.push({
-    productName,
-    carbonEstimate: parseFloat(carbonEstimate),
-    date: new Date().toISOString().split("T")[0],
-  })
+  try {
+    await dbConnect()
+    const user = await User.findOne({ email })
 
-  return NextResponse.json({
-    success: true,
-    newScore: userDB[email].score.toFixed(2),
-  })
-}
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 })
+    }
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url)
-  const email = searchParams.get("email")
-
-  if (!email || !userDB[email]) {
-    return NextResponse.json({ scans: [] })
+    return NextResponse.json({
+      newScore: user.monthlyCarbon,
+      totalScanned: user.totalScanned
+    })
+  } catch (error) {
+    return NextResponse.json({ error: "Failed to update score" }, { status: 500 })
   }
-
-  return NextResponse.json({ scans: userDB[email].scans })
 }

@@ -7,111 +7,79 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar, TrendingDown, Target, Award, BarChart3, Minus, CheckCircle, AlertTriangle } from "lucide-react"
+import { Calendar, TrendingDown, Target, Award } from "lucide-react"
 
-// const monthlyGoals = [
-//   { month: "January", goal: 50, actual: 52.1, status: "missed" },
-//   { month: "February", goal: 50, actual: 48.7, status: "achieved" },
-//   { month: "March", goal: 45, actual: 45.2, status: "close" },
-//   { month: "April", goal: 45, actual: 42.8, status: "achieved" },
-//   { month: "May", goal: 40, actual: 39.5, status: "achieved" },
-//   { month: "June", goal: 40, actual: 37.2, status: "achieved" },
-// ]
-
-// const carbonCategories = [
-//   { name: "Transportation", current: 15.2, target: 12.0, color: "bg-blue-500" },
-//   { name: "Food", current: 18.5, target: 20.0, color: "bg-green-500" },
-//   { name: "Energy", current: 8.3, target: 10.0, color: "bg-yellow-500" },
-//   { name: "Shopping", current: 6.7, target: 8.0, color: "bg-purple-500" },
-// ]
-
-// const achievements = [
-//   { title: "First Week Complete", description: "Tracked carbon for 7 days", earned: true, icon: "🎯" },
-//   { title: "Goal Achiever", description: "Met monthly goal 3 times", earned: true, icon: "🏆" },
-//   { title: "Eco Warrior", description: "Reduced carbon by 20%", earned: true, icon: "🌱" },
-//   { title: "Consistency King", description: "30 days of tracking", earned: false, icon: "👑" },
-//   { title: "Carbon Neutral", description: "Offset all emissions", earned: false, icon: "⚖️" },
-// ]
+interface UserData {
+  monthlyCarbon: number
+  totalScanned: number
+  streakCount: number
+  bestStreakCount: number
+  scans: Array<{
+    productName: string
+    carbonEstimate: number
+    category: string
+    date: string
+    barcode: string
+  }>
+  sustainabilityLevel: string
+}
 
 export default function CarbonTrackingPage() {
-  const [selectedPeriod, setSelectedPeriod] = useState("week")
-  const [dailyEntries, setDailyEntries] = useState<any[]>([])
+  const [userData, setUserData] = useState<UserData | null>(null)
+  const [loading, setLoading] = useState(true)
   const { user } = useAuth()
 
   useEffect(() => {
-    const fetchUserScans = async () => {
+    const fetchUserData = async () => {
       if (!user?.email) return
 
-      const res = await fetch(`/api/user/score?email=${user.email}`)
-      const data = await res.json()
-
-      const uniqueEntries = Array.from(
-        new Map(
-          data.scans.map((entry: any) => [
-            `${new Date(entry.date).toDateString()}_${entry.productName}`,
-            entry,
-          ])
-        ).values()
-      )
-
-      setDailyEntries(uniqueEntries)
-    }
-
-    fetchUserScans()
-  }, [user?.email])
-
-  const uniqueScanDates = Array.from(
-    new Set(dailyEntries.map((entry) => new Date(entry.date).toDateString()))
-  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-
-  const getStreakCount = () => {
-    let streak = 0
-    let today = new Date()
-
-    for (let dateStr of uniqueScanDates) {
-      const entryDate = new Date(dateStr)
-      if (entryDate.toDateString() === today.toDateString()) {
-        streak++
-        today.setDate(today.getDate() - 1)
-      } else {
-        break // Streak broken
+      try {
+        const res = await fetch(`/api/user/score?email=${encodeURIComponent(user.email)}`)
+        if (res.ok) {
+          const data = await res.json()
+          setUserData(data)
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      } finally {
+        setLoading(false)
       }
     }
 
-    return streak
+    fetchUserData()
+  }, [user?.email])
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-white">Loading...</div>
+        </div>
+      </DashboardLayout>
+    )
   }
 
-  const streakCount = getStreakCount()
+  if (!userData) {
+    return (
+      <DashboardLayout>
+        <div className="text-white">Failed to load data</div>
+      </DashboardLayout>
+    )
+  }
 
-  const currentMonthCarbon = dailyEntries.reduce((sum, entry) => sum + entry.carbonEstimate, 0)
   const monthlyGoal = 40
-  const progressPercentage = (currentMonthCarbon / monthlyGoal) * 100
+  const progressPercentage = (userData.monthlyCarbon / monthlyGoal) * 100
+  const dailyAverage = userData.scans.length > 0 ? userData.monthlyCarbon / userData.scans.length : 0
 
-  // const getStatusColor = (status: string) => {
-  //   switch (status) {
-  //     case "achieved":
-  //       return "text-green-400"
-  //     case "close":
-  //       return "text-yellow-400"
-  //     case "missed":
-  //       return "text-red-400"
-  //     default:
-  //       return "text-gray-400"
-  //   }
-  // }
+  // Group scans by date for better display
+  const scansByDate = userData.scans.reduce((acc: { [date: string]: any[] }, scan) => {
+    const dateKey = new Date(scan.date).toDateString()
+    if (!acc[dateKey]) acc[dateKey] = []
+    acc[dateKey].push(scan)
+    return acc
+  }, {})
 
-  // const getStatusIcon = (status: string) => {
-  //   switch (status) {
-  //     case "achieved":
-  //       return <CheckCircle className="h-4 w-4 text-green-400" />
-  //     case "close":
-  //       return <AlertTriangle className="h-4 w-4 text-yellow-400" />
-  //     case "missed":
-  //       return <Minus className="h-4 w-4 text-red-400" />
-  //     default:
-  //       return <AlertTriangle className="h-4 w-4 text-gray-400" />
-  //   }
-  // }
+  const uniqueDates = Object.keys(scansByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
 
   return (
     <DashboardLayout>
@@ -131,7 +99,7 @@ export default function CarbonTrackingPage() {
               <Calendar className="h-4 w-4 text-green-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">{currentMonthCarbon.toFixed(1)} kg</div>
+              <div className="text-2xl font-bold text-white">{userData.monthlyCarbon.toFixed(1)} kg</div>
               <p className="text-xs text-gray-500">CO₂ emissions</p>
             </CardContent>
           </Card>
@@ -142,9 +110,7 @@ export default function CarbonTrackingPage() {
               <TrendingDown className="h-4 w-4 text-green-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">
-                {(currentMonthCarbon / dailyEntries.length).toFixed(1)} kg
-              </div>
+              <div className="text-2xl font-bold text-white">{dailyAverage.toFixed(1)} kg</div>
               <p className="text-xs text-gray-500">per day</p>
             </CardContent>
           </Card>
@@ -155,7 +121,7 @@ export default function CarbonTrackingPage() {
               <Target className="h-4 w-4 text-green-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">{progressPercentage.toFixed(0)}%</div>
+              <div className="text-2xl font-bold text-white">{Math.min(progressPercentage, 100).toFixed(0)}%</div>
               <p className="text-xs text-gray-500">of monthly goal</p>
             </CardContent>
           </Card>
@@ -166,7 +132,7 @@ export default function CarbonTrackingPage() {
               <Award className="h-4 w-4 text-green-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-white">7 days</div>
+              <div className="text-2xl font-bold text-white">{userData.streakCount} days</div>
               <p className="text-xs text-gray-500">tracking streak</p>
             </CardContent>
           </Card>
@@ -185,7 +151,7 @@ export default function CarbonTrackingPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-300">Progress</span>
                 <span className="text-gray-300">
-                  {currentMonthCarbon.toFixed(1)}kg / {monthlyGoal}kg
+                  {userData.monthlyCarbon.toFixed(1)}kg / {monthlyGoal}kg
                 </span>
               </div>
               <Progress value={Math.min(progressPercentage, 100)} className="h-3" />
@@ -193,9 +159,14 @@ export default function CarbonTrackingPage() {
                 <span>0kg</span>
                 <span>{monthlyGoal}kg</span>
               </div>
-              {progressPercentage < 100 && (
+              {progressPercentage <= 100 && (
                 <Badge className="bg-green-900/50 text-green-400 border-green-700">
-                  🎯 On track to meet your goal!
+                  🎯 {progressPercentage < 100 ? 'On track to meet your goal!' : 'Goal achieved!'}
+                </Badge>
+              )}
+              {progressPercentage > 100 && (
+                <Badge className="bg-red-900/50 text-red-400 border-red-700">
+                  ⚠️ Over monthly goal - consider reducing consumption
                 </Badge>
               )}
             </div>
@@ -203,19 +174,13 @@ export default function CarbonTrackingPage() {
         </Card>
 
         <Tabs defaultValue="daily" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-800 border-gray-700">
+          <TabsList className="grid w-full grid-cols-2 bg-gray-800 border-gray-700">
             <TabsTrigger value="daily" className="data-[state=active]:bg-green-600">
-              Daily
+              Daily Scans
             </TabsTrigger>
-            {/* <TabsTrigger value="goals" className="data-[state=active]:bg-green-600">
-              Goals
+            <TabsTrigger value="summary" className="data-[state=active]:bg-green-600">
+              Summary
             </TabsTrigger>
-            <TabsTrigger value="categories" className="data-[state=active]:bg-green-600">
-              Categories
-            </TabsTrigger>
-            <TabsTrigger value="achievements" className="data-[state=active]:bg-green-600">
-              Achievements
-            </TabsTrigger> */}
           </TabsList>
 
           <TabsContent value="daily" className="space-y-6">
@@ -226,160 +191,85 @@ export default function CarbonTrackingPage() {
                   Daily Carbon Entries
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Your carbon footprint for each day this week
+                  Your scanned products and their carbon footprint
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {dailyEntries.map((entry) => (
-                    <div key={entry.date} className="...">
-                      <div>
-                        <div className="font-medium text-white">
-                          {new Date(entry.date).toLocaleDateString("en-US", {
+                  {uniqueDates.length === 0 ? (
+                    <p className="text-gray-400 text-center py-8">No scans yet. Start scanning products to track your carbon footprint!</p>
+                  ) : (
+                    uniqueDates.map((dateKey) => (
+                      <div key={dateKey} className="space-y-2">
+                        <h4 className="font-semibold text-white border-b border-gray-700 pb-1">
+                          {new Date(dateKey).toLocaleDateString("en-US", {
                             weekday: "long",
                             month: "short",
                             day: "numeric",
                           })}
-                        </div>
-                        <div className="text-sm text-gray-400">{entry.productName}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-white">{entry.carbonEstimate} kg</div>
-                        <div className="text-xs text-gray-500">CO₂</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* <TabsContent value="goals" className="space-y-6">
-            <Card className="dark-card border-gray-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Target className="h-5 w-5" />
-                  Monthly Goals History
-                </CardTitle>
-                <CardDescription className="text-gray-400">Track your goal achievement over time</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {monthlyGoals.map((goal) => (
-                    <div
-                      key={goal.month}
-                      className="flex items-center justify-between p-4 rounded-lg bg-gray-800/50 border border-gray-700"
-                    >
-                      <div className="flex items-center gap-3">
-                        {getStatusIcon(goal.status)}
-                        <div>
-                          <div className="font-medium text-white">{goal.month}</div>
-                          <div className="text-sm text-gray-400">
-                            Goal: {goal.goal}kg | Actual: {goal.actual}kg
+                        </h4>
+                        {scansByDate[dateKey].map((scan, index) => (
+                          <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-700">
+                            <div>
+                              <div className="font-medium text-white">{scan.productName}</div>
+                              <div className="text-sm text-gray-400">{scan.category}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-lg font-bold text-white">{scan.carbonEstimate} kg</div>
+                              <div className="text-xs text-gray-500">CO₂</div>
+                            </div>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                      <div className="text-right">
-                        <Badge
-                          className={`${
-                            goal.status === "achieved"
-                              ? "bg-green-900/50 text-green-400 border-green-700"
-                              : goal.status === "close"
-                                ? "bg-yellow-900/50 text-yellow-400 border-yellow-700"
-                                : "bg-red-900/50 text-red-400 border-red-700"
-                          }`}
-                        >
-                          {goal.status === "achieved" ? "Achieved" : goal.status === "close" ? "Close" : "Missed"}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="categories" className="space-y-6">
-            <Card className="dark-card border-gray-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <BarChart3 className="h-5 w-5" />
-                  Carbon by Category
-                </CardTitle>
-                <CardDescription className="text-gray-400">Break down your emissions by category</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {carbonCategories.map((category) => (
-                    <div key={category.name} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-300">{category.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-gray-400">
-                            {category.current}kg / {category.target}kg
-                          </span>
-                          {category.current <= category.target && <CheckCircle className="h-4 w-4 text-green-400" />}
-                        </div>
-                      </div>
-                      <div className="w-full bg-gray-700 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${category.color}`}
-                          style={{ width: `${Math.min((category.current / category.target) * 100, 100)}%` }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>0kg</span>
-                        <span>{category.target}kg target</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <TabsContent value="summary" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="dark-card border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white">Sustainability Level</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-white mb-2">{userData.sustainabilityLevel}</div>
+                    <Badge className={
+                      userData.sustainabilityLevel === 'Excellent' ? 'bg-green-900/50 text-green-400 border-green-700' :
+                      userData.sustainabilityLevel === 'Good' ? 'bg-blue-900/50 text-blue-400 border-blue-700' :
+                      userData.sustainabilityLevel === 'Average' ? 'bg-yellow-900/50 text-yellow-400 border-yellow-700' :
+                      'bg-red-900/50 text-red-400 border-red-700'
+                    }>
+                      Based on {userData.monthlyCarbon.toFixed(1)} kg CO₂ this month
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
 
-          <TabsContent value="achievements" className="space-y-6">
-            <Card className="dark-card border-gray-700">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Award className="h-5 w-5" />
-                  Sustainability Achievements
-                </CardTitle>
-                <CardDescription className="text-gray-400">
-                  Unlock achievements as you progress on your sustainability journey
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {achievements.map((achievement, index) => (
-                    <div
-                      key={index}
-                      className={`p-4 rounded-lg border ${
-                        achievement.earned ? "bg-green-900/20 border-green-700" : "bg-gray-800/50 border-gray-700"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className={`text-2xl ${achievement.earned ? "" : "grayscale opacity-50"}`}>
-                          {achievement.icon}
-                        </span>
-                        <div className="flex-1">
-                          <h4 className={`font-medium mb-1 ${achievement.earned ? "text-white" : "text-gray-400"}`}>
-                            {achievement.title}
-                          </h4>
-                          <p className={`text-sm ${achievement.earned ? "text-gray-300" : "text-gray-500"}`}>
-                            {achievement.description}
-                          </p>
-                          {achievement.earned && (
-                            <Badge className="mt-2 bg-green-900/50 text-green-400 border-green-700">Earned</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent> */}
+              <Card className="dark-card border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-white">Tracking Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Total Products Scanned</span>
+                    <span className="text-white font-semibold">{userData.totalScanned}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Current Streak</span>
+                    <span className="text-white font-semibold">{userData.streakCount} days</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Best Streak</span>
+                    <span className="text-white font-semibold">{userData.bestStreakCount} days</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
