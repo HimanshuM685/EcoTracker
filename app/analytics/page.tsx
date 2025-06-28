@@ -17,10 +17,10 @@ const monthlyData = [
 ]
 
 const categoryBreakdown = [
-  // { category: "Meat & Fish", carbon: 18.5, percentage: 41, color: "bg-red-500" },
-  // { category: "Dairy", carbon: 8.2, percentage: 18, color: "bg-orange-500" },
-  // { category: "Fruits & Vegetables", carbon: 6.1, percentage: 14, color: "bg-green-500" },
-  // { category: "Grains & Cereals", carbon: 5.4, percentage: 12, color: "bg-yellow-500" },
+  { category: "Meat & Fish", carbon: 18.5, percentage: 41, color: "bg-red-500" },
+  { category: "Dairy", carbon: 8.2, percentage: 18, color: "bg-orange-500" },
+  { category: "Fruits & Vegetables", carbon: 6.1, percentage: 14, color: "bg-green-500" },
+  { category: "Grains & Cereals", carbon: 5.4, percentage: 12, color: "bg-yellow-500" },
   { category: "Chocolate", carbon: 2.09, percentage: 20, color: "bg-blue-500" },
   { category: "Cold Drinks", carbon: 2.0, percentage: 15, color: "bg-purple-500" },
 ]
