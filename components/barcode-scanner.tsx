@@ -101,7 +101,10 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
       const scanRes = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ barcode }),
+        body: JSON.stringify({ 
+          barcode,
+          userEmail: user?.email // Include user email for database tracking
+        }),
       });
 
       const data = await scanRes.json();
@@ -110,12 +113,12 @@ export default function BarcodeScanner({ onScan, onClose }: BarcodeScannerProps)
         return;
       }
 
-      // Send to user score API
+      // Send to user score API (keeping for backward compatibility)
       const userScoreRes = await fetch("/api/user/score", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: user?.email, // later replace with real user
+          email: user?.email,
           productName: data.productName,
           carbonEstimate: data.carbonEstimate,
         }),
