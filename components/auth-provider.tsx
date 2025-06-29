@@ -110,6 +110,12 @@ const signup = async (name: string, email: string, password: string): Promise<bo
     try {
       console.log("🔍 Attempting Google sign-in...")
       
+      // Check if Firebase is available (client-side only)
+      if (!auth || !googleProvider) {
+        console.error("❌ Firebase not available")
+        return false
+      }
+      
       const result = await signInWithPopup(auth, googleProvider)
       const firebaseUser = result.user
       

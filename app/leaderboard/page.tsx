@@ -6,7 +6,7 @@ import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Trophy, Medal, Award, TrendingDown, Loader2, Users, Target, BarChart3 } from "lucide-react"
+import { Trophy, Medal, Award, TrendingUp, Loader2, Users, Target, BarChart3, Star, Zap } from "lucide-react"
 
 interface LeaderboardUser {
   id: string
@@ -18,11 +18,30 @@ interface LeaderboardUser {
   change: "up" | "down" | "same"
   joinedAt: string
   streakCount: number
+  totalPointsEarned: number
+  level: number
+  achievementCount: number
+  levelTier: string
+  pointsSummary: {
+    confirmed: number
+    unconfirmed: number
+    total: number
+  }
 }
 
 interface LeaderboardStats {
   totalUsers: number
-  averageCarbon: string
+  averagePoints: number
+  averageLevel: string
+  totalPointsInSystem: number
+  levelTierDistribution: {
+    legendary: number
+    master: number
+    expert: number
+    advanced: number
+    intermediate: number
+    beginner: number
+  }
 }
 
 interface LeaderboardData {
@@ -90,19 +109,25 @@ export default function LeaderboardPage() {
     }
   }
 
-  const getSustainabilityLevel = (carbon: number) => {
-    if (carbon < 20) return { level: "Excellent", color: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400" }
-    if (carbon < 35) return { level: "Good", color: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400" }
-    if (carbon < 50) return { level: "Average", color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400" }
-    return { level: "Needs Improvement", color: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400" }
+  const getLevelTierBadge = (tier: string) => {
+    const tierConfig = {
+      'Legendary': { color: "bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-400", icon: "👑" },
+      'Master': { color: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-400", icon: "🏆" },
+      'Expert': { color: "bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-400", icon: "⭐" },
+      'Advanced': { color: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-400", icon: "🎯" },
+      'Intermediate': { color: "bg-orange-100 text-orange-800 dark:bg-orange-900/50 dark:text-orange-400", icon: "📈" },
+      'Beginner': { color: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300", icon: "🌱" }
+    }
+    const config = tierConfig[tier as keyof typeof tierConfig] || tierConfig.Beginner
+    return { ...config }
   }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">Leaderboard</h1>
-          <p className="text-gray-400 mt-2">See how you rank against other sustainable shoppers this month.</p>
+          <h1 className="text-3xl font-bold text-white">Points Leaderboard</h1>
+          <p className="text-gray-400 mt-2">See how you rank against other eco-warriors by points and level.</p>
         </div>
 
         {loading ? (
@@ -114,10 +139,10 @@ export default function LeaderboardPage() {
           <>
             {/* Current User Stats */}
             {currentUserData && (
-              <Card className="dark-card border-gray-700 bg-gradient-to-r from-blue-900/20 to-green-900/20">
+              <Card className="dark-card border-gray-700 bg-gradient-to-r from-purple-900/20 to-blue-900/20">
                 <CardHeader>
                   <CardTitle className="text-white flex items-center gap-2">
-                    <Users className="h-5 w-5" />
+                    <Star className="h-5 w-5" />
                     Your Position
                   </CardTitle>
                 </CardHeader>
@@ -128,13 +153,16 @@ export default function LeaderboardPage() {
                       <div>
                         <div className="text-lg font-bold text-white">Rank #{currentUserData.rank}</div>
                         <div className="text-sm text-gray-400">
-                          {currentUserData.monthlyCarbon.toFixed(1)} kg CO₂ • {currentUserData.totalScanned} scans
+                          {currentUserData.totalPointsEarned.toLocaleString()} points • Level {currentUserData.level} • {currentUserData.achievementCount} achievements
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {currentUserData.totalScanned} scans • {currentUserData.streakCount} day streak
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <Badge className={getSustainabilityLevel(currentUserData.monthlyCarbon).color}>
-                        {getSustainabilityLevel(currentUserData.monthlyCarbon).level}
+                      <Badge className={getLevelTierBadge(currentUserData.levelTier).color}>
+                        {getLevelTierBadge(currentUserData.levelTier).icon} {currentUserData.levelTier}
                       </Badge>
                       <div className="mt-1">{getChangeIndicator(currentUserData.change)}</div>
                     </div>
@@ -154,15 +182,15 @@ export default function LeaderboardPage() {
                         {user && userEntry.email === user.email ? "You" : userEntry.name}
                       </CardTitle>
                       <CardDescription className="text-gray-400">
-                        {userEntry.monthlyCarbon.toFixed(1)} kg CO₂ this month
+                        {userEntry.totalPointsEarned.toLocaleString()} points
                       </CardDescription>
                       <CardDescription className="text-gray-500 text-xs">
-                        {userEntry.totalScanned} products scanned • {userEntry.streakCount} day streak
+                        Level {userEntry.level} • {userEntry.achievementCount} achievements • {userEntry.streakCount} day streak
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="text-center">
-                      <Badge className={getSustainabilityLevel(userEntry.monthlyCarbon).color}>
-                        {getSustainabilityLevel(userEntry.monthlyCarbon).level}
+                      <Badge className={getLevelTierBadge(userEntry.levelTier).color}>
+                        {getLevelTierBadge(userEntry.levelTier).icon} {userEntry.levelTier}
                       </Badge>
                     </CardContent>
                   </Card>
@@ -174,17 +202,18 @@ export default function LeaderboardPage() {
             <Card className="dark-card border-gray-700">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
-                  <TrendingDown className="h-5 w-5" />
-                  Monthly Rankings
+                  <TrendingUp className="h-5 w-5" />
+                  Points Rankings
                 </CardTitle>
                 <CardDescription className="text-gray-400">
-                  Rankings based on lowest carbon footprint this month
+                  Rankings based on total points earned and level achieved
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {leaderboardData.map((userEntry: LeaderboardUser) => {
                     const isCurrentUser = user && userEntry.email === user.email
+                    const tierBadge = getLevelTierBadge(userEntry.levelTier)
                     return (
                       <div
                         key={userEntry.id}
@@ -212,16 +241,17 @@ export default function LeaderboardPage() {
                               )}
                             </div>
                             <div className="text-sm text-gray-400">
-                              {userEntry.monthlyCarbon.toFixed(1)} kg CO₂ • {userEntry.totalScanned} scans • {userEntry.streakCount} day streak
+                              <Zap className="inline h-3 w-3 mr-1" />
+                              {userEntry.totalPointsEarned.toLocaleString()} points • Level {userEntry.level} • {userEntry.achievementCount} achievements
                             </div>
                             <div className="text-xs text-gray-500">
-                              Joined {new Date(userEntry.joinedAt).toLocaleDateString()}
+                              {userEntry.totalScanned} scans • {userEntry.streakCount} day streak • Joined {new Date(userEntry.joinedAt).toLocaleDateString()}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <Badge className={getSustainabilityLevel(userEntry.monthlyCarbon).color}>
-                            {getSustainabilityLevel(userEntry.monthlyCarbon).level}
+                          <Badge className={tierBadge.color}>
+                            {tierBadge.icon} {userEntry.levelTier}
                           </Badge>
                           <div className="text-right">
                             {getChangeIndicator(userEntry.change)}
@@ -235,7 +265,7 @@ export default function LeaderboardPage() {
             </Card>
 
             {/* Stats Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <Card className="dark-card border-gray-700">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
@@ -270,12 +300,25 @@ export default function LeaderboardPage() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
                     <BarChart3 className="h-4 w-4" />
-                    Average CO₂
+                    Average Points
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold text-white">{stats?.averageCarbon || "0"} kg</div>
+                  <div className="text-2xl font-bold text-white">{stats?.averagePoints?.toLocaleString() || "0"}</div>
                   <p className="text-xs text-gray-500">Community average</p>
+                </CardContent>
+              </Card>
+
+              <Card className="dark-card border-gray-700">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-300 flex items-center gap-2">
+                    <Star className="h-4 w-4" />
+                    Average Level
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-white">{stats?.averageLevel || "1.0"}</div>
+                  <p className="text-xs text-gray-500">Community level</p>
                 </CardContent>
               </Card>
             </div>

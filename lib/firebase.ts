@@ -10,15 +10,22 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 }
 
-// Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-const auth = getAuth(app)
-const googleProvider = new GoogleAuthProvider()
+// Initialize Firebase only on client side
+let app: any = null
+let auth: any = null
+let googleProvider: any = null
 
-// Configure the Google provider
-googleProvider.setCustomParameters({
-  prompt: 'select_account'
-})
+if (typeof window !== 'undefined') {
+  // Only initialize on client side
+  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
+  auth = getAuth(app)
+  googleProvider = new GoogleAuthProvider()
+  
+  // Configure the Google provider
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  })
+}
 
 export { auth, googleProvider }
 export default app

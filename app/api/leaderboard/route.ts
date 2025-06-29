@@ -7,24 +7,26 @@ export async function GET() {
   try {
     await dbConnect()
 
-    // Fetch all users and sort by monthlyCarbon (ascending - lower is better)
+    // Fetch all users and sort by totalPointsEarned (descending) and level (descending)
     const users = await User.find({})
       .select('name email monthlyCarbon totalScanned createdAt lastScanDate streakCount rewardPoints confirmedPoints unconfirmedPoints totalPointsEarned level achievements purchasedItems activeBadges rewardTransactions')
-      .sort({ monthlyCarbon: 1, totalScanned: -1 }) // Primary: lower carbon, Secondary: more scans
+      .sort({ totalPointsEarned: -1, level: -1, totalScanned: -1 }) // Primary: highest points, Secondary: highest level, Tertiary: most scans
       .lean()
 
     // Calculate rank changes (simulate for now - you'd need historical data for real changes)
     const leaderboardData = users.map((user: any, index) => {
-      // Simple change calculation based on user activity
+      // Simple change calculation based on user activity and points
       let change = "same"
-      if (user.totalScanned > 5) change = "up"
-      else if (user.totalScanned === 0) change = "down"
+      const totalPoints = user.totalPointsEarned || 0
+      if (totalPoints > 500) change = "up"
+      else if (totalPoints < 100 && user.totalScanned > 0) change = "down"
       
-      // Calculate sustainability tier
-      const sustainabilityTier = user.monthlyCarbon < 10 && user.totalScanned >= 15 ? 'Platinum' :
-                               user.monthlyCarbon < 20 && user.totalScanned >= 10 ? 'Gold' :
-                               user.monthlyCarbon < 30 && user.totalScanned >= 5 ? 'Silver' :
-                               user.monthlyCarbon < 40 ? 'Bronze' : 'Beginner'
+      // Calculate level tier based on level instead of carbon
+      const levelTier = user.level >= 15 ? 'Legendary' :
+                       user.level >= 10 ? 'Master' :
+                       user.level >= 7 ? 'Expert' :
+                       user.level >= 5 ? 'Advanced' :
+                       user.level >= 3 ? 'Intermediate' : 'Beginner'
       
       // Get detailed points summary
       const pointsSummary = getUserPointsSummary(user)
@@ -46,7 +48,7 @@ export async function GET() {
         totalPointsEarned: user.totalPointsEarned || 0,
         level: user.level || 1,
         achievementCount: (user.achievements || []).length,
-        sustainabilityTier,
+        levelTier,
         activeBadges: user.activeBadges || [],
         hasAdvancedFeatures: (user.purchasedItems || []).some((item: any) => 
           ['advanced_analytics', 'streak_protector', 'double_points'].includes(item.itemId))
@@ -55,8 +57,8 @@ export async function GET() {
 
     // Calculate enhanced stats
     const totalUsers = users.length
-    const averageCarbon = totalUsers > 0 
-      ? users.reduce((sum, user) => sum + (user.monthlyCarbon || 0), 0) / totalUsers
+    const averagePoints = totalUsers > 0 
+      ? users.reduce((sum, user) => sum + (user.totalPointsEarned || 0), 0) / totalUsers
       : 0
     
     const averageLevel = totalUsers > 0
@@ -65,22 +67,23 @@ export async function GET() {
 
     const totalPointsInSystem = users.reduce((sum, user) => sum + (user.totalPointsEarned || 0), 0)
     
-    const tierDistribution = {
-      platinum: leaderboardData.filter(u => u.sustainabilityTier === 'Platinum').length,
-      gold: leaderboardData.filter(u => u.sustainabilityTier === 'Gold').length,
-      silver: leaderboardData.filter(u => u.sustainabilityTier === 'Silver').length,
-      bronze: leaderboardData.filter(u => u.sustainabilityTier === 'Bronze').length,
-      beginner: leaderboardData.filter(u => u.sustainabilityTier === 'Beginner').length,
+    const levelTierDistribution = {
+      legendary: leaderboardData.filter(u => u.levelTier === 'Legendary').length,
+      master: leaderboardData.filter(u => u.levelTier === 'Master').length,
+      expert: leaderboardData.filter(u => u.levelTier === 'Expert').length,
+      advanced: leaderboardData.filter(u => u.levelTier === 'Advanced').length,
+      intermediate: leaderboardData.filter(u => u.levelTier === 'Intermediate').length,
+      beginner: leaderboardData.filter(u => u.levelTier === 'Beginner').length,
     }
 
     return NextResponse.json({
       leaderboard: leaderboardData,
       stats: {
         totalUsers,
-        averageCarbon: averageCarbon.toFixed(2),
+        averagePoints: Math.round(averagePoints),
         averageLevel: averageLevel.toFixed(1),
         totalPointsInSystem,
-        tierDistribution
+        levelTierDistribution
       }
     })
 
