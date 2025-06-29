@@ -30,12 +30,12 @@ export default function ModernLandingPage() {
     setIsVisible(true)
   }, [])
 
-  const stats = [
-    { number: "15K+", label: "Active Users", icon: Users },
-    { number: "2.3M", label: "Products Scanned", icon: Scan },
-    { number: "850T", label: "CO₂ Saved", icon: Leaf },
-    { number: "94%", label: "User Satisfaction", icon: Star },
-  ]
+  // const stats = [
+  //   { number: "15K+", label: "Active Users", icon: Users },
+  //   { number: "2.3M", label: "Products Scanned", icon: Scan },
+  //   { number: "850T", label: "CO₂ Saved", icon: Leaf },
+  //   { number: "94%", label: "User Satisfaction", icon: Star },
+  // ]
 
   const features = [
     {
@@ -128,7 +128,7 @@ export default function ModernLandingPage() {
 
             <h1 className="text-6xl md:text-7xl lg:text-8xl font-bold mb-8 leading-tight">
               <span className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent">
-                Shop
+                Track. Recycle. Live.
               </span>
               <br />
               <span className="bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 dark:from-green-400 dark:via-emerald-400 dark:to-green-500 bg-clip-text text-transparent">
@@ -181,7 +181,7 @@ export default function ModernLandingPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {stats.map((stat, index) => (
                 <div key={index} className="group">
                   <div className="relative p-8 rounded-2xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-white/20 dark:border-gray-700/50 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
@@ -200,7 +200,7 @@ export default function ModernLandingPage() {
                   </div>
                 </div>
               ))}
-            </div>
+            </div> */}
           </div>
         </div>
       </section>

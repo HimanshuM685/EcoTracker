@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Leaf, Home, Scan, Trophy, BarChart3, User, LogOut, TrendingDown } from "lucide-react"
+import { Leaf, Home, Scan, Trophy, BarChart3, User, LogOut, TrendingDown, Gift } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -25,6 +25,7 @@ const navigation = [
   { name: "Carbon Tracking", href: "/carbon-tracking", icon: TrendingDown },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+  { name: "Rewards", href: "/rewards", icon: Gift },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

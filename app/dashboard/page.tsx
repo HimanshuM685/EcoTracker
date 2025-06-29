@@ -7,7 +7,7 @@ import DashboardLayout from "@/components/dashboard-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Leaf, Scan, TrendingDown, Trophy } from "lucide-react"
+import { Leaf, Scan, TrendingDown, Trophy, Star, Gift } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -17,6 +17,16 @@ interface UserStats {
   rank: number
   totalUsers: number
   streakCount: number
+  // Rewards data
+  rewardPoints?: number
+  pointsSummary?: {
+    confirmed: number
+    unconfirmed: number
+    total: number
+    pendingConfirmation: number
+  }
+  level?: number
+  achievementCount?: number
 }
 
 export default function Dashboard() {
@@ -36,20 +46,35 @@ export default function Dashboard() {
   const fetchUserStats = async () => {
     try {
       // Fetch leaderboard data to get user rank and stats
-      const response = await fetch('/api/leaderboard')
-      if (response.ok) {
-        const data = await response.json()
-        const currentUser = data.leaderboard.find((u: any) => u.email === user?.email)
+      const [leaderboardResponse, rewardsResponse] = await Promise.all([
+        fetch('/api/leaderboard'),
+        fetch(`/api/rewards?email=${encodeURIComponent(user?.email || '')}`)
+      ])
+      
+      if (leaderboardResponse.ok) {
+        const leaderboardData = await leaderboardResponse.json()
+        const currentUser = leaderboardData.leaderboard.find((u: any) => u.email === user?.email)
         
-        if (currentUser) {
-          setUserStats({
-            monthlyCarbon: currentUser.monthlyCarbon,
-            totalScanned: currentUser.totalScanned,
-            rank: currentUser.rank,
-            totalUsers: data.stats.totalUsers,
-            streakCount: currentUser.streakCount
-          })
+        let stats: UserStats = {
+          monthlyCarbon: currentUser?.monthlyCarbon || 0,
+          totalScanned: currentUser?.totalScanned || 0,
+          rank: currentUser?.rank || 0,
+          totalUsers: leaderboardData.stats.totalUsers,
+          streakCount: currentUser?.streakCount || 0,
+          rewardPoints: currentUser?.rewardPoints || 0,
+          level: currentUser?.level || 1,
+          achievementCount: currentUser?.achievementCount || 0
         }
+        
+        // Add detailed points data from rewards API
+        if (rewardsResponse.ok) {
+          const rewardsData = await rewardsResponse.json()
+          stats.pointsSummary = rewardsData.pointsSummary
+          stats.level = rewardsData.level
+          stats.achievementCount = rewardsData.achievements?.length || 0
+        }
+        
+        setUserStats(stats)
       }
     } catch (error) {
       console.error('Failed to fetch user stats:', error)
@@ -137,6 +162,111 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-gray-500">
                 Out of {userStats?.totalUsers || 0} users
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Rewards Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="dark-card border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Reward Points</CardTitle>
+              <Gift className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : userStats?.pointsSummary?.total || userStats?.rewardPoints || 0}
+              </div>
+              {userStats?.pointsSummary && (
+                <div className="text-xs text-gray-500 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-green-400">✓ Confirmed:</span>
+                    <span>{userStats.pointsSummary.confirmed}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-yellow-400">⏳ Pending:</span>
+                    <span>{userStats.pointsSummary.unconfirmed}</span>
+                  </div>
+                </div>
+              )}
+              {!userStats?.pointsSummary && (
+                <p className="text-xs text-gray-500">Available to spend</p>
+              )}
+              <Link href="/rewards">
+                <Button variant="outline" size="sm" className="mt-2 text-xs">
+                  Visit Shop
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="dark-card border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Level</CardTitle>
+              <Star className={`h-4 w-4 ${
+                (userStats?.level || 1) >= 10 ? 'text-purple-400' : 
+                (userStats?.level || 1) >= 7 ? 'text-yellow-400' : 
+                (userStats?.level || 1) >= 4 ? 'text-blue-400' : 'text-green-400'
+              }`} />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${
+                (userStats?.level || 1) >= 10 ? 'text-purple-400' : 
+                (userStats?.level || 1) >= 7 ? 'text-yellow-400' : 
+                (userStats?.level || 1) >= 4 ? 'text-blue-400' : 'text-green-400'
+              }`}>
+                {loading ? "..." : userStats?.level || 1}
+              </div>
+              <p className="text-xs text-gray-500">
+                {(userStats?.level || 1) >= 15 ? 'Max Level!' : 'Current level'}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="dark-card border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Achievements</CardTitle>
+              <Trophy className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-white">
+                {loading ? "..." : userStats?.achievementCount || 0}
+              </div>
+              <p className="text-xs text-gray-500">Unlocked</p>
+              <Link href="/rewards">
+                <Button variant="outline" size="sm" className="mt-2 text-xs">
+                  View All
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="dark-card border-gray-700">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-gray-300">Sustainability Tier</CardTitle>
+              <Leaf className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${
+                userStats && userStats.monthlyCarbon < 10 && userStats.totalScanned >= 15 ? 'text-gray-300' :
+                userStats && userStats.monthlyCarbon < 20 && userStats.totalScanned >= 10 ? 'text-yellow-400' :
+                userStats && userStats.monthlyCarbon < 30 && userStats.totalScanned >= 5 ? 'text-gray-400' :
+                userStats && userStats.monthlyCarbon < 40 ? 'text-amber-600' : 'text-gray-500'
+              }`}>
+                {loading ? "..." : 
+                 userStats && userStats.monthlyCarbon < 10 && userStats.totalScanned >= 15 ? "Platinum" :
+                 userStats && userStats.monthlyCarbon < 20 && userStats.totalScanned >= 10 ? "Gold" :
+                 userStats && userStats.monthlyCarbon < 30 && userStats.totalScanned >= 5 ? "Silver" :
+                 userStats && userStats.monthlyCarbon < 40 ? "Bronze" : "Beginner"
+                }
+              </div>
+              <p className="text-xs text-gray-500">
+                {userStats && userStats.monthlyCarbon < 10 && userStats.totalScanned >= 15 ? "Ultimate eco-warrior" :
+                 userStats && userStats.monthlyCarbon < 20 && userStats.totalScanned >= 10 ? "Exceptional sustainability" :
+                 userStats && userStats.monthlyCarbon < 30 && userStats.totalScanned >= 5 ? "Great progress" :
+                 userStats && userStats.monthlyCarbon < 40 ? "Getting started" : "Room for improvement"
+                }
               </p>
             </CardContent>
           </Card>

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Scan, Search, Leaf, AlertTriangle, CheckCircle, Camera } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import BarcodeScanner from "@/components/barcode-scanner"
+import RewardsNotification, { useRewardsNotification } from "@/components/rewards-notification"
 
 
 interface ProductData {
@@ -41,6 +42,7 @@ export default function ScanPage() {
   const [stream, setStream] = useState<MediaStream | null>(null)
   const { updateUserStats, user } = useAuth()
   const { toast } = useToast()
+  const { notification, showNotification, dismissNotification } = useRewardsNotification()
 
   const startCamera = async () => {
     try {
@@ -117,6 +119,42 @@ export default function ScanPage() {
       title: "Product found!",
       description: `Carbon impact: ${data.carbonEstimate}kg CO₂ (${data.confidence} confidence)`,
     });
+
+    // Show reward notifications if rewards were earned
+    if (data.rewards) {
+      const { pointsEarned, pointsType, leveledUp, newAchievements } = data.rewards;
+      
+      if (pointsEarned && pointsEarned > 0) {
+        showNotification({
+          type: 'points',
+          message: `Great job! You earned ${pointsEarned} reward points for scanning this product.`,
+          points: pointsEarned,
+          pointsType: pointsType
+        });
+      }
+
+      if (leveledUp) {
+        setTimeout(() => {
+          showNotification({
+            type: 'level_up',
+            message: `Congratulations! You've reached level ${data.rewards.level}!`,
+            level: data.rewards.level
+          });
+        }, 2000);
+      }
+
+      if (newAchievements && newAchievements.length > 0) {
+        newAchievements.forEach((achievement: any, index: number) => {
+          setTimeout(() => {
+            showNotification({
+              type: 'achievement',
+              message: `Achievement unlocked: ${achievement.name}!`,
+              points: achievement.points
+            });
+          }, 3000 + (index * 1500));
+        });
+      }
+    }
 
     updateUserStats?.(parseFloat(data.carbonEstimate));
   } catch (err) {
@@ -365,7 +403,13 @@ export default function ScanPage() {
           />
         )}
       </div>
+      
+      {/* Rewards Notification */}
+      <RewardsNotification 
+        notification={notification}
+        onDismiss={dismissNotification}
+      />
     </DashboardLayout>
   )
-  }
+}
 
