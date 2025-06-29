@@ -25,6 +25,7 @@ const navigation = [
   { name: "Carbon Tracking", href: "/carbon-tracking", icon: TrendingDown },
   { name: "Leaderboard", href: "/leaderboard", icon: Trophy },
   { name: "Analytics", href: "/analytics", icon: BarChart3 },
+ 
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
